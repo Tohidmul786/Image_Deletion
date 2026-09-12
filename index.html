@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SR Image Cleanup Tool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F6F5F1;
+    --panel: #FFFFFF;
+    --ink: #1B1B18;
+    --muted: #6B6A63;
+    --border: #DDDAD2;
+    --accent: #2F5D50;
+    --accent-soft: #E4EDE9;
+    --danger: #B23A34;
+    --danger-soft: #F7E7E5;
+    --warn: #9A6A1E;
+    --warn-soft: #FBF3E4;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Space Grotesk', sans-serif;
+    line-height: 1.5;
+  }
+
+  .topbar {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .topbar .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 15px;
+  }
+  .topbar .brand .dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--accent);
+  }
+  .topbar .version {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    color: var(--muted);
+    background: var(--accent-soft);
+    padding: 3px 9px;
+    border-radius: 20px;
+  }
+
+  .wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 40px 24px 96px;
+  }
+  header.page { margin-bottom: 32px; }
+  header.page h1 {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 0 0 8px;
+    letter-spacing: -0.01em;
+  }
+  header.page p {
+    color: var(--muted);
+    font-size: 15px;
+    margin: 0;
+    max-width: 58ch;
+  }
+  .browser-note {
+    margin-top: 16px;
+    font-size: 13px;
+    color: var(--warn);
+    background: var(--warn-soft);
+    border: 1px solid #EBD8AF;
+    border-radius: 6px;
+    padding: 10px 14px;
+    display: none;
+  }
+  .browser-note.show { display: block; }
+
+  .step {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 16px;
+    position: relative;
+  }
+  .step.disabled { opacity: 0.45; pointer-events: none; }
+  .step-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+  .step-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px; color: var(--accent); font-weight: 600;
+  }
+  .step-title { font-size: 17px; font-weight: 600; }
+  .step-desc { color: var(--muted); font-size: 14px; margin: 0 0 16px; }
+  .status-line {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px; color: var(--accent); margin-top: 12px;
+  }
+  .status-line.warn { color: var(--warn); }
+
+  button {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600; font-size: 14px; border-radius: 7px;
+    padding: 11px 18px; border: 1px solid transparent; cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease;
+  }
+  button.primary { background: var(--accent); color: white; }
+  button.primary:hover { background: #264d43; }
+  button.primary:disabled { background: #B9C6C1; cursor: not-allowed; }
+  button.ghost { background: transparent; border-color: var(--border); color: var(--ink); }
+  button.ghost:hover { border-color: var(--accent); }
+  button.ghost:disabled { color: var(--muted); cursor: not-allowed; }
+  button.danger { background: var(--danger); color: white; }
+  button.danger:hover { background: #952e29; }
+  button.danger:disabled { background: #E4B6B3; cursor: not-allowed; }
+  button.small { padding: 7px 12px; font-size: 12.5px; }
+
+  textarea {
+    width: 100%; min-height: 90px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 13px;
+    border: 1px solid var(--border); border-radius: 7px; padding: 12px;
+    resize: vertical; background: var(--paper);
+  }
+  .or-divider {
+    display: flex; align-items: center; gap: 10px;
+    color: var(--muted); font-size: 12px; margin: 14px 0;
+  }
+  .or-divider::before, .or-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+  input[type="file"] { font-size: 13px; }
+
+  .options-row {
+    display: flex; align-items: center; gap: 10px; margin: 14px 0; font-size: 14px; flex-wrap: wrap;
+  }
+  .options-row label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+
+  .folder-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+  table.preview {
+    width: 100%; border-collapse: collapse;
+    font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; margin-top: 14px;
+  }
+  table.preview th {
+    text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border);
+    color: var(--muted); font-weight: 500;
+  }
+  table.preview td { padding: 8px 10px; border-bottom: 1px solid #EEECE6; word-break: break-all; }
+
+  .summary-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--danger-soft); border: 1px solid #EBCFCC; border-radius: 8px;
+    padding: 14px 16px; margin: 16px 0; font-size: 14px;
+  }
+  .summary-bar.none { background: var(--accent-soft); border-color: #C8DAD2; }
+  .summary-bar strong { font-family: 'IBM Plex Mono', monospace; }
+
+  .empty-note { color: var(--muted); font-size: 13px; padding: 6px 0; }
+
+  .log-box {
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px; background: var(--paper);
+    border: 1px solid var(--border); border-radius: 7px; padding: 12px;
+    max-height: 180px; overflow-y: auto; white-space: pre-wrap; margin-top: 14px;
+  }
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(27,27,24,0.55);
+    display: none; align-items: center; justify-content: center; z-index: 100; padding: 20px;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal-box {
+    background: var(--panel); border-radius: 12px; max-width: 460px; width: 100%;
+    padding: 26px; box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+  }
+  .modal-box h3 { margin: 0 0 10px; font-size: 18px; }
+  .modal-box p { color: var(--muted); font-size: 14px; margin: 0 0 20px; }
+  .modal-box .modal-detail {
+    font-family: 'IBM Plex Mono', monospace; font-size: 13px; background: var(--paper);
+    border: 1px solid var(--border); border-radius: 7px; padding: 10px 12px; margin-bottom: 20px;
+  }
+  .modal-box .btn-row { justify-content: flex-end; }
+
+  footer.page {
+    max-width: 760px; margin: 32px auto 0; padding: 0 24px;
+    color: var(--muted); font-size: 12.5px; text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><span class="dot"></span> SR Image Cleanup</div>
+  <div class="version">v1.0 · production</div>
+</div>
+
+<div class="wrap">
+
+  <header class="page">
+    <h1>Clear orphaned images for No Update records</h1>
+    <p>Match captured images against filenames now marked "No Update," preview them, and clear the storage. Runs entirely in your browser — nothing is uploaded anywhere.</p>
+    <div class="browser-note" id="browserNote">This tool needs the File System Access API, supported in Chrome and Edge on desktop. Please reopen this page in Chrome or Edge.</div>
+  </header>
+
+  <div class="step" id="step1">
+    <div class="step-head"><span class="step-num">01</span><span class="step-title">Choose the images folder</span></div>
+    <p class="step-desc">Pick the folder where captured SR images are saved. Nothing is read or changed until you confirm later.</p>
+    <div class="folder-row">
+      <button class="primary" id="pickFolderBtn">Choose folder…</button>
+      <button class="ghost small" id="forgetFolderBtn" style="display:none;">Forget saved folder</button>
+    </div>
+    <div class="options-row">
+      <label><input type="checkbox" id="rememberCheck" checked> Remember this folder on this device</label>
+    </div>
+    <div class="status-line" id="folderStatus"></div>
+  </div>
+
+  <div class="step disabled" id="step2">
+    <div class="step-head"><span class="step-num">02</span><span class="step-title">Load the "No Update" filename list</span></div>
+    <p class="step-desc">Upload the CSV export, or paste filenames directly — one per line. Extensions are optional.</p>
+    <input type="file" id="csvInput" accept=".csv,text/csv">
+    <div class="or-divider">or paste filenames</div>
+    <textarea id="pasteInput" placeholder="SR_FR_1234567&#10;SR_ES_2233445&#10;SR_US_9988776"></textarea>
+    <div class="btn-row" style="margin-top:12px;">
+      <button class="ghost" id="usePasteBtn">Use pasted list</button>
+    </div>
+    <div class="status-line" id="listStatus"></div>
+  </div>
+
+  <div class="step disabled" id="step3">
+    <div class="step-head"><span class="step-num">03</span><span class="step-title">Preview matches</span></div>
+    <p class="step-desc">Every file below has a name matching one of your "No Update" entries. Review before anything is removed.</p>
+    <div class="options-row">
+      <label><input type="checkbox" id="recursiveCheck"> Include subfolders</label>
+    </div>
+    <button class="ghost" id="scanBtn">Scan folder for matches</button>
+    <div id="previewArea"></div>
+  </div>
+
+  <div class="step disabled" id="step4">
+    <div class="step-head"><span class="step-num">04</span><span class="step-title">Confirm</span></div>
+    <p class="step-desc">By default, matches are moved into a timestamped <code>_DELETED_BACKUP</code> folder inside your images folder — nothing is unrecoverable. Check "permanent" to delete outright once you trust the results.</p>
+    <div class="options-row">
+      <label><input type="checkbox" id="permanentCheck"> Permanently delete instead of moving to backup</label>
+    </div>
+    <div class="btn-row">
+      <button class="danger" id="confirmBtn" disabled>Delete matched files</button>
+      <button class="ghost" id="startOverBtn" style="display:none;">Start over</button>
+    </div>
+    <div class="log-box" id="logBox" style="display:none;"></div>
+    <div class="btn-row" id="downloadLogRow" style="display:none; margin-top:12px;">
+      <button class="ghost" id="downloadLogBtn">Download log CSV</button>
+    </div>
+  </div>
+
+</div>
+
+<footer class="page">
+  Works in Chrome and Edge on desktop. Your files never leave this device.
+</footer>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-box">
+    <h3 id="modalTitle">Confirm action</h3>
+    <p id="modalDesc"></p>
+    <div class="modal-detail" id="modalDetail"></div>
+    <div class="btn-row">
+      <button class="ghost" id="modalCancelBtn">Cancel</button>
+      <button class="danger" id="modalConfirmBtn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let dirHandle = null;
+let targetNames = new Set();
+let matchedFiles = [];
+let logRows = [["original_name", "size_bytes", "action", "timestamp"]];
+
+const folderStatus = document.getElementById('folderStatus');
+const listStatus = document.getElementById('listStatus');
+const step2 = document.getElementById('step2');
+const step3 = document.getElementById('step3');
+const step4 = document.getElementById('step4');
+const previewArea = document.getElementById('previewArea');
+const confirmBtn = document.getElementById('confirmBtn');
+const startOverBtn = document.getElementById('startOverBtn');
+const logBox = document.getElementById('logBox');
+const downloadLogRow = document.getElementById('downloadLogRow');
+const forgetFolderBtn = document.getElementById('forgetFolderBtn');
+
+if (!window.showDirectoryPicker) {
+  document.getElementById('browserNote').classList.add('show');
+  document.getElementById('pickFolderBtn').disabled = true;
+}
+
+// ---------- IndexedDB: remember the last folder handle on this device ----------
+const DB_NAME = 'sr-cleanup-tool';
+const STORE = 'handles';
+function openDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(STORE);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function saveFolderHandle(handle) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).put(handle, 'lastFolder');
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function loadFolderHandle() {
+  const db = await openDb();
+  return new Promise((resolve) => {
+    const tx = db.transaction(STORE, 'readonly');
+    const req = tx.objectStore(STORE).get('lastFolder');
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => resolve(null);
+  });
+}
+async function clearFolderHandle() {
+  const db = await openDb();
+  return new Promise((resolve) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).delete('lastFolder');
+    tx.oncomplete = () => resolve();
+  });
+}
+
+async function trySetFolder(handle, { silent } = {}) {
+  const perm = await handle.queryPermission({ mode: 'readwrite' });
+  if (perm === 'granted') {
+    activateFolder(handle);
+    return true;
+  }
+  if (silent) {
+    folderStatus.innerHTML = 'A previously used folder was found. <button class="ghost small" id="reconnectBtn" style="margin-left:6px;">Reconnect</button>';
+    document.getElementById('reconnectBtn').addEventListener('click', async () => {
+      const req = await handle.requestPermission({ mode: 'readwrite' });
+      if (req === 'granted') activateFolder(handle);
+      else folderStatus.textContent = 'Permission was not granted.';
+    });
+    return false;
+  }
+  const req = await handle.requestPermission({ mode: 'readwrite' });
+  if (req === 'granted') { activateFolder(handle); return true; }
+  return false;
+}
+
+function activateFolder(handle) {
+  dirHandle = handle;
+  folderStatus.textContent = `Folder selected (read-write): ${handle.name}`;
+  step2.classList.remove('disabled');
+  forgetFolderBtn.style.display = 'inline-block';
+}
+
+// Try to restore the last folder on load
+(async () => {
+  if (!window.showDirectoryPicker) return;
+  const saved = await loadFolderHandle();
+  if (saved) await trySetFolder(saved, { silent: true });
+})();
+
+document.getElementById('pickFolderBtn').addEventListener('click', async () => {
+  try {
+    const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    const ok = await trySetFolder(handle);
+    if (!ok) {
+      folderStatus.textContent = 'Folder selected, but write permission was not granted. Click "Choose folder…" again and allow read-write access.';
+      return;
+    }
+    if (document.getElementById('rememberCheck').checked) {
+      await saveFolderHandle(handle);
+    }
+  } catch (e) {
+    if (e.name !== 'AbortError') folderStatus.textContent = 'Could not open folder: ' + e.message;
+  }
+});
+
+forgetFolderBtn.addEventListener('click', async () => {
+  await clearFolderHandle();
+  forgetFolderBtn.style.display = 'none';
+  folderStatus.textContent = 'Saved folder forgotten. Choose a folder to continue.';
+});
+
+function stem(filename) {
+  const idx = filename.lastIndexOf('.');
+  return (idx > 0 ? filename.slice(0, idx) : filename).toLowerCase();
+}
+function humanSize(bytes) {
+  const units = ['B','KB','MB','GB'];
+  let size = bytes, i = 0;
+  while (size >= 1024 && i < units.length - 1) { size /= 1024; i++; }
+  return `${size.toFixed(1)}${units[i]}`;
+}
+function parseCsvText(text) {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (lines.length === 0) return new Set();
+  let rows = lines.map(l => l.split(',')[0].trim());
+  if (rows[0].toLowerCase() === 'filename') rows = rows.slice(1);
+  const set = new Set();
+  rows.forEach(r => { if (r) set.add(stem(r)); });
+  return set;
+}
+
+document.getElementById('csvInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  targetNames = parseCsvText(text);
+  finishListLoad(file.name);
+});
+document.getElementById('usePasteBtn').addEventListener('click', () => {
+  const text = document.getElementById('pasteInput').value;
+  targetNames = parseCsvText(text);
+  finishListLoad('pasted list');
+});
+function finishListLoad(source) {
+  if (targetNames.size === 0) {
+    listStatus.textContent = 'No filenames found — check the CSV or pasted text.';
+    return;
+  }
+  listStatus.textContent = `Loaded ${targetNames.size} filename(s) from ${source}.`;
+  step3.classList.remove('disabled');
+}
+
+// Recursive-aware folder walk
+async function* walk(handle, prefix = '') {
+  for await (const [name, entry] of handle.entries()) {
+    if (entry.kind === 'file') {
+      yield { entry, name, path: prefix + name };
+    } else if (document.getElementById('recursiveCheck').checked) {
+      yield* walk(entry, prefix + name + '/');
+    }
+  }
+}
+
+document.getElementById('scanBtn').addEventListener('click', async () => {
+  matchedFiles = [];
+  previewArea.innerHTML = '<p class="empty-note">Scanning…</p>';
+  let scannedCount = 0;
+  for await (const item of walk(dirHandle)) {
+    scannedCount++;
+    if (item.name.startsWith('_DELETED_BACKUP')) continue;
+    if (targetNames.has(stem(item.name))) {
+      const file = await item.entry.getFile();
+      matchedFiles.push({ handle: item.entry, name: item.name, path: item.path, size: file.size });
+    }
+  }
+  renderPreview(scannedCount);
+});
+
+function renderPreview(scannedCount) {
+  if (matchedFiles.length === 0) {
+    previewArea.innerHTML = `
+      <div class="summary-bar none"><span>No matching images found (${scannedCount} file(s) scanned).</span></div>`;
+    step4.classList.add('disabled');
+    confirmBtn.disabled = true;
+    return;
+  }
+  const totalSize = matchedFiles.reduce((s, f) => s + f.size, 0);
+  let rows = matchedFiles.map(f => `<tr><td>${f.path}</td><td>${humanSize(f.size)}</td></tr>`).join('');
+  previewArea.innerHTML = `
+    <div class="summary-bar"><span><strong>${matchedFiles.length}</strong> of ${scannedCount} scanned file(s) matched, <strong>${humanSize(totalSize)}</strong> total</span></div>
+    <table class="preview"><thead><tr><th>File</th><th>Size</th></tr></thead><tbody>${rows}</tbody></table>`;
+  step4.classList.remove('disabled');
+  confirmBtn.disabled = false;
+  startOverBtn.style.display = 'none';
+  logBox.style.display = 'none';
+  downloadLogRow.style.display = 'none';
+  confirmBtn.style.display = 'inline-block';
+  confirmBtn.style.background = '';
+}
+
+// ---------- Custom confirmation modal (replaces window.confirm) ----------
+const modalOverlay = document.getElementById('modalOverlay');
+function showModal({ title, desc, detail }) {
+  return new Promise((resolve) => {
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalDesc').textContent = desc;
+    document.getElementById('modalDetail').textContent = detail;
+    modalOverlay.classList.add('show');
+    const cleanup = (result) => {
+      modalOverlay.classList.remove('show');
+      cancelBtn.removeEventListener('click', onCancel);
+      okBtn.removeEventListener('click', onOk);
+      resolve(result);
+    };
+    const cancelBtn = document.getElementById('modalCancelBtn');
+    const okBtn = document.getElementById('modalConfirmBtn');
+    const onCancel = () => cleanup(false);
+    const onOk = () => cleanup(true);
+    cancelBtn.addEventListener('click', onCancel);
+    okBtn.addEventListener('click', onOk);
+  });
+}
+
+confirmBtn.addEventListener('click', async () => {
+  const permanent = document.getElementById('permanentCheck').checked;
+  const totalSize = matchedFiles.reduce((s, f) => s + f.size, 0);
+  const ok = await showModal({
+    title: permanent ? 'Permanently delete files?' : 'Move files to backup?',
+    desc: permanent
+      ? 'This cannot be undone. Files will be removed for good.'
+      : 'Files will be moved into a timestamped _DELETED_BACKUP folder inside your images folder. You can restore them manually afterward.',
+    detail: `${matchedFiles.length} file(s) · ${humanSize(totalSize)} total`,
+  });
+  if (!ok) return;
+
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = 'Working…';
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  let backupDirHandle = null;
+  if (!permanent) {
+    const backupRoot = await dirHandle.getDirectoryHandle('_DELETED_BACKUP', { create: true });
+    backupDirHandle = await backupRoot.getDirectoryHandle(timestamp, { create: true });
+  }
+
+  logRows = [["original_name", "size_bytes", "action", "timestamp"]];
+  for (const f of matchedFiles) {
+    try {
+      const parentHandle = await resolveParent(f.path);
+      if (permanent) {
+        await parentHandle.removeEntry(f.name);
+        logRows.push([f.path, f.size, "deleted", timestamp]);
+      } else {
+        const file = await f.handle.getFile();
+        const newHandle = await backupDirHandle.getFileHandle(f.name, { create: true });
+        const writable = await newHandle.createWritable();
+        await writable.write(await file.arrayBuffer());
+        await writable.close();
+        await parentHandle.removeEntry(f.name);
+        logRows.push([f.path, f.size, `moved to _DELETED_BACKUP/${timestamp}`, timestamp]);
+      }
+    } catch (err) {
+      logRows.push([f.path, f.size, `ERROR: ${err.message}`, timestamp]);
+    }
+  }
+
+  const errorCount = logRows.slice(1).filter(r => String(r[2]).startsWith('ERROR')).length;
+  logBox.style.display = 'block';
+  logBox.textContent = logRows.map(r => r.join(' | ')).join('\n');
+  downloadLogRow.style.display = 'flex';
+  confirmBtn.textContent = errorCount > 0
+    ? `Done — ${errorCount} file(s) failed, see log below`
+    : 'Done';
+  if (errorCount > 0) confirmBtn.style.background = '#9A6A1E';
+  confirmBtn.style.display = 'none';
+  startOverBtn.style.display = 'inline-block';
+  matchedFiles = [];
+});
+
+// Resolve the direct parent folder handle for a (possibly nested) path,
+// needed for recursive scans since removeEntry only works on the immediate parent.
+async function resolveParent(path) {
+  const parts = path.split('/');
+  parts.pop(); // drop filename
+  let handle = dirHandle;
+  for (const part of parts) {
+    handle = await handle.getDirectoryHandle(part);
+  }
+  return handle;
+}
+
+startOverBtn.addEventListener('click', () => {
+  previewArea.innerHTML = '';
+  step4.classList.add('disabled');
+  confirmBtn.style.display = 'inline-block';
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = 'Delete matched files';
+  confirmBtn.style.background = '';
+  startOverBtn.style.display = 'none';
+  logBox.style.display = 'none';
+  downloadLogRow.style.display = 'none';
+});
+
+document.getElementById('downloadLogBtn').addEventListener('click', () => {
+  const csv = logRows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'cleanup_log.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+</script>
+</body>
+</html>
