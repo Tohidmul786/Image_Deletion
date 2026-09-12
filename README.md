@@ -4,16 +4,6 @@ A browser-based tool to clear captured images left behind when a record's
 status changes to "No Update." Runs entirely client-side — no server, no
 installs, no data leaves the user's machine.
 
-## Deploy (GitHub Pages)
-
-1. Create a new GitHub repository (e.g. `sr-cleanup-tool`).
-2. Upload `index.html` to the root of the repo.
-3. Go to **Settings → Pages**. Under "Source," choose the `main` branch and
-   `/ (root)` folder, then save.
-4. GitHub gives you a live URL within a minute or two, e.g.
-   `https://yourusername.github.io/sr-cleanup-tool/`.
-5. Share that URL with your team.
-
 ## Requirements for users
 
 - **Chrome or Edge on desktop.** The tool uses the File System Access API,
